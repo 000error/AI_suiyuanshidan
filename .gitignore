@@ -1,0 +1,5 @@
+# 忽略Excel源文件
+数据表.xlsx
+
+# 忽略JSON文件（已转换为JS）
+dishes_data.json

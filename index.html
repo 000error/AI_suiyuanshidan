@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随园食单 - 自动化画卷</title>
+    <style>
+        /* --- 样式保持不变 --- */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Ma+Shan+Zheng&display=swap');
+        :root {
+            --bg-env: #2c2c2c; --silk-color: #9ab8b6; --paper-color: #fbf9ef;
+            --ink-color: #1a1a1a; --wood-color: #5d4037; --accent-red: #8a2a2a; --gold-thread: #d4c5a3;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg-env);
+            /* 如果你想用本地背景图，也可以放在 images 文件夹并在下面修改 url */
+            background-image: url("https://www.transparenttextures.com/patterns/dark-matter.png");
+            min-height: 100vh;
+            font-family: 'Noto Serif SC', serif;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+        }
+        /* 欢迎页 */
+        #welcome-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(30, 30, 30, 0.98); transition: opacity 0.8s ease; }
+        .closed-scroll { width: 280px; height: 50px; border-radius: 25px; position: relative; cursor: pointer; background: linear-gradient(to bottom, #e0dcc5, #fbf9ef 40%, #dcd5b8); box-shadow: 0 15px 40px rgba(0,0,0,0.6); transition: transform 0.3s; display: flex; justify-content: center; align-items: center; }
+        .closed-scroll:hover { transform: scale(1.05); }
+        .roller-end { position: absolute; width: 24px; height: 60px; background: linear-gradient(to right, #3e2723, #5d4037, #3e2723); border-radius: 4px; box-shadow: inset 1px 1px 3px rgba(255,255,255,0.2); }
+        .roller-end.left { left: -12px; } .roller-end.right { right: -12px; }
+        .scroll-label { width: 36px; height: 120px; background-color: #b23a3a; border: 1px solid #ffd700; writing-mode: vertical-rl; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Ma Shan Zheng', cursive; font-size: 20px; box-shadow: 2px 3px 6px rgba(0,0,0,0.3); }
+        .click-hint { margin-top: 80px; color: #888; font-size: 14px; letter-spacing: 5px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+        /* 主画卷 */
+        #main-scroll { width: 800px; max-width: 95vw; min-height: 100vh; display: none; flex-direction: column; box-shadow: 0 0 60px rgba(0,0,0,0.7); margin-bottom: 100px; }
+        .header-silk { height: 140px; background-color: var(--silk-color); background-image: url("https://www.transparenttextures.com/patterns/diagmonds-light.png"); border-bottom: 2px solid var(--gold-thread); border-top: 18px solid var(--wood-color); position: relative; display: flex; align-items: center; justify-content: center; }
+        .header-silk::before { content: ''; position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 4px; height: 40px; background: #4e342e; }
+        
+        /* 顶部作者信息样式 - 横向书写 */
+        .header-author {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            letter-spacing: 1px;
+            padding: 0 20px;
+        }
+        .header-author .author-name {
+            font-weight: 500;
+            color: var(--accent-red);
+        }
+        .header-author .author-platform {
+            color: #888;
+            margin-left: 15px;
+        }
+        .footer-silk { height: 100px; background-color: var(--silk-color); background-image: url("https://www.transparenttextures.com/patterns/diagmonds-light.png"); border-top: 2px solid var(--gold-thread); border-bottom: 28px solid var(--wood-color); border-radius: 0 0 5px 5px; position: relative; display: flex; align-items: center; justify-content: center; }
+        
+        /* 底部作者信息样式 - 与顶部一致的横向布局 */
+        .footer-author {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            letter-spacing: 1px;
+            padding: 0 20px;
+        }
+        .footer-author .author-name {
+            font-weight: 500;
+            color: var(--accent-red);
+        }
+        .footer-author .author-platform {
+            color: #888;
+            margin-left: 15px;
+        }
+        .paper-heart { background-color: var(--paper-color); background-image: url("https://www.transparenttextures.com/patterns/rice-paper-2.png"); border-left: 30px solid var(--silk-color); border-right: 30px solid var(--silk-color); padding: 80px 60px; flex-grow: 1; }
+        
+        .intro { text-align: center; margin-bottom: 120px; }
+        .intro h1 { font-family: 'Ma Shan Zheng', cursive; font-size: 64px; color: var(--ink-color); margin-bottom: 15px; }
+        .seal-box { width: 36px; height: 36px; border: 2px solid var(--accent-red); color: var(--accent-red); font-family: 'Ma Shan Zheng'; font-size: 14px; line-height: 32px; margin: 0 auto; }
+        .footer-credits { writing-mode: vertical-rl; margin: 0 auto; color: #999; font-size: 12px; letter-spacing: 4px; height: 120px; display: flex; align-items: center; }
+
+        /* 菜品样式 */
+        .dish-item { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; margin-bottom: 160px; opacity: 0; transform: translateY(40px); transition: all 1s ease-out; border-bottom: 1px solid rgba(0,0,0,0.03); padding-bottom: 50px; gap: 40px; }
+        .dish-item.visible { opacity: 1; transform: translateY(0); }
+        .dish-img-box { width: 55%; position: relative; flex-shrink: 0; }
+        .dish-img { 
+            width: 100%; 
+            height: auto; 
+            display: block; 
+            border-radius: 2px; 
+            /* 使用多层阴影和渐变遮罩让图片融入背景 */
+            box-shadow: 
+                0 0 0 1px rgba(212, 197, 163, 0.3),  /* 内层金线边框 */
+                0 0 20px rgba(0,0,0,0.1),             /* 柔和阴影 */
+                0 8px 30px rgba(0,0,0,0.15);          /* 深层阴影 */
+            filter: sepia(0.15) contrast(0.92) brightness(0.98); 
+            transition: transform 0.4s, box-shadow 0.4s;
+            /* 添加渐变边框效果 */
+            padding: 3px;
+            background: linear-gradient(135deg, 
+                rgba(251, 249, 239, 0.8) 0%, 
+                rgba(212, 197, 163, 0.4) 50%, 
+                rgba(251, 249, 239, 0.8) 100%);
+            background-clip: padding-box;
+        }
+        .dish-img:hover { 
+            transform: scale(1.01); 
+            box-shadow: 
+                0 0 0 1px rgba(212, 197, 163, 0.5),
+                0 0 25px rgba(0,0,0,0.15),
+                0 10px 40px rgba(0,0,0,0.2);
+        }
+        /* 为图片添加外层渐变边框容器效果 */
+        .dish-img-box::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: radial-gradient(ellipse at center, 
+                transparent 0%, 
+                transparent 60%,
+                rgba(212, 197, 163, 0.15) 80%,
+                rgba(212, 197, 163, 0.3) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .dish-info { width: 40%; writing-mode: vertical-rl; display: flex; flex-direction: column; align-items: flex-start; height: auto; min-height: 400px; flex-shrink: 0; overflow: visible; }
+        .dish-name { font-family: 'Ma Shan Zheng', cursive; font-size: 48px; color: var(--ink-color); line-height: 1.2; white-space: nowrap; border-top: 3px solid var(--accent-red); padding-top: 15px; margin-left: 25px; letter-spacing: 8px; flex-shrink: 0; }
+        .dish-desc { 
+            font-size: 16px; 
+            line-height: 2.2; 
+            color: #555; 
+            letter-spacing: 3px; 
+            text-align: justify; 
+            margin-top: 0; 
+            max-height: 600px; 
+            /* 竖排文本时，max-height限制的是竖直高度，滚动是横向的 */
+            overflow-x: auto;  /* 横向滚动显示更多列 */
+            overflow-y: hidden; /* 隐藏竖向滚动 */
+            padding-bottom: 15px; /* 为滚动条预留空间 */
+            /* 竖排文本时，宽度实际是显示的高度 */
+            /* 使用固定宽度确保可滚动，同时文字按列对齐 */
+        }
+        
+        /* 自定义滚动条样式 - 与古典风格一致 */
+        /* 竖排文本时，横向滚动条才是主要的 */
+        .dish-desc::-webkit-scrollbar {
+            width: 8px;  /* 横向滚动条的宽度（实际显示为高度） */
+            height: 8px; /* 纵向滚动条的高度（实际显示为宽度） */
+        }
+        .dish-desc::-webkit-scrollbar-track {
+            background: var(--paper-color);
+            border-radius: 4px;
+            border: 1px solid rgba(138, 42, 42, 0.1);
+        }
+        .dish-desc::-webkit-scrollbar-thumb {
+            background: linear-gradient(to right, var(--accent-red), #6d1f1f);
+            border-radius: 4px;
+            border: 1px solid var(--accent-red);
+        }
+        .dish-desc::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-red);
+        }
+        /* Firefox 滚动条样式 */
+        .dish-desc {
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-red) var(--paper-color);
+        }
+
+        @media (max-width: 768px) {
+            #main-scroll { width: 100%; border: none; }
+            .paper-heart { border-left: 10px solid var(--silk-color); border-right: 10px solid var(--silk-color); padding: 40px 20px; }
+            .dish-item { flex-direction: column; gap: 20px; align-items: center; }
+            .dish-img-box { width: 100%; }
+            .dish-info { width: 100%; writing-mode: horizontal-tb; min-height: auto; display: block; }
+            .dish-name { white-space: normal; border-top: none; border-left: 4px solid var(--accent-red); padding-top: 0; padding-left: 10px; margin-left: 0; margin-bottom: 15px; font-size: 32px; }
+            .dish-desc { max-height: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 欢迎页 -->
+    <div id="welcome-layer">
+        <div class="closed-scroll" onclick="openScroll()">
+            <div class="roller-end left"></div>
+            <div class="scroll-label">随园食单</div>
+            <div class="roller-end right"></div>
+        </div>
+        <div class="click-hint">点击展卷</div>
+    </div>
+
+    <!-- 主画卷 -->
+    <div id="main-scroll">
+        <div class="header-silk">
+            <div class="header-author">
+                <span>本作品由</span>
+                <span class="author-name">@南泉青年</span>
+                <span>用AI制作</span>
+                <span class="author-platform">公众号：坏雷达研究所</span>
+            </div>
+        </div>
+        <div class="paper-heart">
+            
+            <div class="intro">
+                <h1>隨園食單</h1>
+                <div class="seal-box">袁枚</div>
+            </div>
+
+            <div id="dish-container"></div>
+
+            <div class="footer-credits">
+                <span>小仓山房藏版 · 乾隆五十七年</span>
+            </div>
+        </div>
+        <div class="footer-silk">
+            <div class="footer-author">
+                <span>本作品由</span>
+                <span class="author-name">@南泉青年</span>
+                <span>用AI制作</span>
+                <span class="author-platform">公众号：坏雷达研究所</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="dish_data.js"></script>
+    <script>
+        // ============================================================
+        // 🟢 配置区域：数据从外部 dish_data.js 文件加载
+        // ============================================================
+        // dishData 已在 dish_data.js 中定义，共303道菜品
+        // 图片文件位于 images/ 文件夹中
+        // 如需更新数据，请修改数据表.xlsx，然后运行 extract_data.py
+        // ============================================================
+
+
+        function renderDishes() {
+            const container = document.getElementById('dish-container');
+            
+            if (!dishData || dishData.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:50px;">暂无菜品数据</div>';
+                return;
+            }
+            
+            let htmlContent = '';
+
+            dishData.forEach(dish => {
+                // 🟢 关键修改：自动添加 "images/" 前缀
+                const imagePath = "images/" + dish.img;
+
+                htmlContent += `
+                <div class="dish-item">
+                    <div class="dish-img-box">
+                        <img src="${imagePath}" class="dish-img" alt="${dish.name}" onerror="this.style.display='none';console.log('图片加载失败，请检查文件名: ${imagePath}')">
+                    </div>
+                    <div class="dish-info">
+                        <div class="dish-name">${dish.name}</div>
+                        <p class="dish-desc">${dish.desc}</p>
+                    </div>
+                </div>
+                `;
+            });
+
+            container.innerHTML = htmlContent;
+            
+            // 调整文字区域，确保文字列对齐
+            setTimeout(() => {
+                document.querySelectorAll('.dish-desc').forEach(desc => {
+                    // 竖排文本时，字号 * 行高 = 每列宽度
+                    const fontSize = 16;
+                    const lineHeight = 2.2;
+                    const columnWidth = fontSize * lineHeight; // 约35.2px
+                    
+                    // 计算当前宽度能容纳多少完整列
+                    const currentWidth = desc.scrollWidth;
+                    const maxHeight = 600; // max-height值
+                    const fullColumns = Math.floor(maxHeight / columnWidth);
+                    const adjustedHeight = fullColumns * columnWidth;
+                    
+                    // 只有当内容超出时才调整
+                    if (currentWidth > maxHeight) {
+                        desc.style.maxHeight = adjustedHeight + 'px';
+                    }
+                });
+            }, 100);
+            
+            // 设置滚动动画观察器
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.15 });
+            document.querySelectorAll('.dish-item').forEach(item => observer.observe(item));
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderDishes();
+        });
+
+        function openScroll() {
+            const welcome = document.getElementById('welcome-layer');
+            const main = document.getElementById('main-scroll');
+            welcome.style.opacity = '0';
+            setTimeout(() => {
+                welcome.style.display = 'none';
+                main.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, 0);
+                });
+            }, 800);
+        }
+    </script>
+</body>
+</html>
